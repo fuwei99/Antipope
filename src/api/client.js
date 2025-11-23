@@ -37,9 +37,19 @@ export async function generateAssistantResponse(requestBody, tokenSource, callba
 
   if (!response.ok) {
     const errorText = await response.text();
-    if (response.status === 403) {
-      tokenManager.disableCurrentToken(token);
-      throw new Error(`该账号没有使用权限，已自动禁用。错误详情: ${errorText}`);
+    if (response.status === 403 || response.status === 429) {
+      // 尝试处理错误（切换 Token）
+      const newToken = await tokenManager.handleRequestError({ statusCode: response.status }, token.access_token);
+      if (newToken && newToken.access_token !== token.access_token) {
+        logger.info(`切换到新 Token，重试请求...`);
+        // 递归重试
+        return generateAssistantResponse(requestBody, { type: 'admin' }, callback);
+      }
+
+      if (response.status === 403) {
+        tokenManager.disableCurrentToken(token);
+        throw new Error(`该账号没有使用权限，已自动禁用。错误详情: ${errorText}`);
+      }
     }
     throw new Error(`API请求失败 (${response.status}): ${errorText}`);
   }

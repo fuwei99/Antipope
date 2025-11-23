@@ -144,11 +144,12 @@ class TokenManager {
         if (this.isExpired(token)) {
           await this.refreshToken(token);
         }
-        this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
+        // 移除主动轮询切换，保持使用当前 Token
+        // this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
 
         // 记录使用统计
         this.recordUsage(token);
-        log.info(`🔄 轮询使用 Token #${tokenIndex} (总请求: ${this.getTokenRequests(token)})`);
+        log.info(`🔄 使用 Token #${tokenIndex} (总请求: ${this.getTokenRequests(token)})`);
 
         return token;
       } catch (error) {
@@ -211,23 +212,28 @@ class TokenManager {
   }
 
   async handleRequestError(error, currentAccessToken) {
-    if (error.statusCode === 403) {
-      log.warn('请求遇到403错误，尝试刷新token');
-      const currentToken = this.tokens[this.currentIndex];
-      if (currentToken && currentToken.access_token === currentAccessToken) {
-        try {
-          await this.refreshToken(currentToken);
-          log.info('Token刷新成功，返回新token');
-          return currentToken;
-        } catch (refreshError) {
-          if (refreshError.statusCode === 403) {
-            log.warn('刷新token也遇到403，禁用并切换到下一个');
+    // 处理 403 (权限不足) 和 429 (配额耗尽)
+    if (error.statusCode === 403 || error.statusCode === 429) {
+      log.warn(`请求遇到 ${error.statusCode} 错误，尝试切换 Token`);
+
+      // 切换到下一个 Token
+      this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
+
+      // 如果是 403，可能需要禁用当前 Token（视具体情况而定，这里先尝试刷新或切换）
+      if (error.statusCode === 403) {
+        const currentToken = this.tokens.find(t => t.access_token === currentAccessToken);
+        if (currentToken) {
+          // 尝试刷新一次，如果刷新也失败则禁用
+          try {
+            await this.refreshToken(currentToken);
+            return currentToken; // 刷新成功，重试
+          } catch (e) {
+            log.warn('Token 刷新失败，禁用并切换');
             this.disableToken(currentToken);
-            return await this.getToken();
           }
-          log.error('刷新token失败:', refreshError.message);
         }
       }
+
       return await this.getToken();
     }
     return null;
