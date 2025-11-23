@@ -4,7 +4,10 @@ import { getUserOrSharedToken } from '../admin/user_manager.js';
 import r2Uploader from '../utils/r2_uploader.js';
 import logger from '../utils/logger.js';
 
-export async function generateAssistantResponse(requestBody, tokenSource, callback) {
+export async function generateAssistantResponse(requestBody, tokenSource, callback, retryCount = 0) {
+  // 最大重试次数
+  const MAX_RETRIES = 5;
+
   let token;
 
   if (tokenSource && tokenSource.type === 'user') {
@@ -38,12 +41,26 @@ export async function generateAssistantResponse(requestBody, tokenSource, callba
   if (!response.ok) {
     const errorText = await response.text();
     if (response.status === 403 || response.status === 429) {
+      if (retryCount >= MAX_RETRIES) {
+        logger.error(`达到最大重试次数 (${MAX_RETRIES})，停止重试`);
+        throw new Error(`API请求失败 (${response.status}): ${errorText} (已重试 ${MAX_RETRIES} 次)`);
+      }
+
       // 尝试处理错误（切换 Token）
       const newToken = await tokenManager.handleRequestError({ statusCode: response.status }, token.access_token);
-      if (newToken && newToken.access_token !== token.access_token) {
-        logger.info(`切换到新 Token，重试请求...`);
+
+      // 如果获取到了新 Token（且不是同一个），或者即使是同一个但我们想重试（针对 429 等待后重试的情况，虽然这里 handleRequestError 会切换）
+      // 关键是 handleRequestError 会切换 currentIndex。
+      // 我们检查 newToken 是否有效。
+
+      if (newToken) {
+        logger.info(`切换到新 Token，准备重试请求 (重试次数: ${retryCount + 1}/${MAX_RETRIES})...`);
+
+        // 增加一个短暂的延迟，避免瞬间发起大量请求
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // 递归重试
-        return generateAssistantResponse(requestBody, { type: 'admin' }, callback);
+        return generateAssistantResponse(requestBody, { type: 'admin' }, callback, retryCount + 1);
       }
 
       if (response.status === 403) {
