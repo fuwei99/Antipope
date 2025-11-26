@@ -101,8 +101,11 @@ export async function generateAssistantResponse(requestBody, tokenSource, callba
           if (parts) {
             for (const part of parts) {
               // 独立检查 thoughtSignature，不依赖于 part.thought === true
+              // 仅针对包含 'image' 或以 '-sig' 结尾的模型启用签名上传
+              const shouldUploadSig = requestBody.model && (requestBody.model.includes('image') || requestBody.model.endsWith('-sig'));
               const signature = part.thoughtSignature || part.thought_signature;
-              if (signature && r2Uploader.isEnabled()) {
+
+              if (signature && r2Uploader.isEnabled() && shouldUploadSig) {
                 const filename = `sig_${Date.now()}_${Math.random().toString(36).substring(2)}.txt`;
 
                 // 异步上传签名
