@@ -304,7 +304,13 @@ async function generateRequestBody(openaiMessages, modelName, parameters, openai
     modelName.startsWith('gemini-3-pro-') ||
     modelName === "rev19-uic3-1p" ||
     modelName === "gpt-oss-120b-medium"
-  let actualModelName = modelName.endsWith('-thinking') ? modelName.slice(0, -9) : modelName;
+  let actualModelName = modelName;
+
+  if (modelName.endsWith('-thinking') && !modelName.includes('opus')) {
+    actualModelName = modelName.slice(0, -9);
+  } else if (modelName.endsWith('-sig')) {
+    actualModelName = modelName.slice(0, -4);
+  }
 
   // 剥离尺寸后缀，以获取真实的模型名称
   if (actualModelName.startsWith('gemini-3-pro-image-')) {
