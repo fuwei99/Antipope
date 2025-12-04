@@ -311,10 +311,13 @@ export async function importTokens(filePath) {
         const exists = accounts.some(acc => acc.access_token === token.access_token);
         if (!exists) {
           accounts.push({
+            email: token.email,
+            name: token.name,
             access_token: token.access_token,
             refresh_token: token.refresh_token,
             expires_in: token.expires_in,
             timestamp: token.timestamp || Date.now(),
+            created: token.created,
             enable: token.enable !== false
           });
           addedCount++;
