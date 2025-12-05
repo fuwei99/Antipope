@@ -300,12 +300,11 @@ function convertOpenAIToolsToAntigravity(openaiTools) {
 }
 async function generateRequestBody(openaiMessages, modelName, parameters, openaiTools) {
   const enableThinking = modelName.endsWith('-thinking') ||
-    modelName.endsWith('-sig') ||
-    modelName.includes('image') ||
     modelName === 'gemini-2.5-pro' ||
     modelName.startsWith('gemini-3-pro-') ||
     modelName === "rev19-uic3-1p" ||
-    modelName === "gpt-oss-120b-medium"
+    modelName === "gpt-oss-120b-medium" ||
+    modelName.endsWith('-sig')
   let actualModelName = modelName;
 
   if (modelName.endsWith('-thinking') && !modelName.includes('opus')) {
@@ -340,7 +339,10 @@ async function generateRequestBody(openaiMessages, modelName, parameters, openai
       sessionId: generateSessionId()
     },
     model: actualModelName,
-    userAgent: "antigravity"
+    userAgent: "antigravity",
+    _internalConfig: {
+      shouldUploadSig: modelName.endsWith('-sig') || actualModelName.includes('image')
+    }
   }
 }
 // HTML转义函数，防止XSS攻击
