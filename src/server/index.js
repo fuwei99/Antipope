@@ -204,6 +204,7 @@ app.post('/v1/chat/completions', async (req, res) => {
       const created = Math.floor(Date.now() / 1000);
       let hasToolCall = false;
 
+      // 传入原始 model 名称，用于判断是否需要上传签名
       await generateAssistantResponse(requestBody, req.tokenSource, (data) => {
         if (data.type === 'tool_calls') {
           hasToolCall = true;
@@ -231,7 +232,7 @@ app.post('/v1/chat/completions', async (req, res) => {
             choices: [{ index: 0, delta: { content: data.content }, finish_reason: null }]
           })}\n\n`);
         }
-      });
+      }, 0, model);
 
       res.write(`data: ${JSON.stringify({
         id,
@@ -254,13 +255,14 @@ app.post('/v1/chat/completions', async (req, res) => {
     } else {
       let fullContent = '';
       let toolCalls = [];
+      // 传入原始 model 名称
       await generateAssistantResponse(requestBody, req.tokenSource, (data) => {
         if (data.type === 'tool_calls') {
           toolCalls = data.tool_calls;
         } else {
           fullContent += data.content;
         }
-      });
+      }, 0, model);
 
       const message = { role: 'assistant', content: fullContent };
       if (toolCalls.length > 0) {

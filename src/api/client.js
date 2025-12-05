@@ -4,7 +4,7 @@ import { getUserOrSharedToken } from '../admin/user_manager.js';
 import r2Uploader from '../utils/r2_uploader.js';
 import logger from '../utils/logger.js';
 
-export async function generateAssistantResponse(requestBody, tokenSource, callback, retryCount = 0) {
+export async function generateAssistantResponse(requestBody, tokenSource, callback, retryCount = 0, originalModelName = '') {
   // 最大重试次数为 Token 总数
   const MAX_RETRIES = tokenManager.tokens.length;
 
@@ -60,7 +60,7 @@ export async function generateAssistantResponse(requestBody, tokenSource, callba
         await new Promise(resolve => setTimeout(resolve, 10000));
 
         // 递归重试
-        return generateAssistantResponse(requestBody, { type: 'admin' }, callback, retryCount + 1);
+        return generateAssistantResponse(requestBody, { type: 'admin' }, callback, retryCount + 1, originalModelName);
       }
 
       if (response.status === 403) {
@@ -102,9 +102,9 @@ export async function generateAssistantResponse(requestBody, tokenSource, callba
             for (const part of parts) {
               // 独立检查 thoughtSignature，不依赖于 part.thought === true
               // 仅针对包含 'image' 或以 '-sig' 结尾的模型启用签名上传
-              // 使用 originalModel 进行判断，因为 model 字段可能已经被去除了后缀
-              const modelName = requestBody.originalModel || requestBody.model;
-              const shouldUploadSig = modelName && (modelName.includes('image') || modelName.endsWith('-sig'));
+              // 使用 originalModelName 进行判断，因为 requestBody.model 可能已经被去除了后缀
+              const modelToCheck = originalModelName || requestBody.model;
+              const shouldUploadSig = modelToCheck && (modelToCheck.includes('image') || modelToCheck.endsWith('-sig'));
               const signature = part.thoughtSignature || part.thought_signature;
 
               if (signature && r2Uploader.isEnabled() && shouldUploadSig) {

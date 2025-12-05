@@ -343,7 +343,6 @@ async function generateRequestBody(openaiMessages, modelName, parameters, openai
       sessionId: generateSessionId()
     },
     model: actualModelName,
-    originalModel: modelName, // 保留原始模型名称，用于后续判断（如签名上传）
     userAgent: "antigravity"
   }
 }
