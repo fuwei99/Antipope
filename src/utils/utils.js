@@ -167,11 +167,6 @@ async function openaiMessageToAntigravity(openaiMessages, modelName) {
   // 判断是否需要处理签名（包含 image 或以 -sig 结尾）
   const shouldProcessSig = modelName && (modelName.includes('image') || modelName.endsWith('-sig'));
 
-  // 调试日志：检查模型名称和判断结果
-  if (modelName) {
-    console.log(`[DEBUG] 处理消息转换: model=${modelName}, shouldProcessSig=${shouldProcessSig}`);
-  }
-
   for (const message of openaiMessages) {
     if (message.role === "user" || message.role === "system") {
       const extracted = extractImagesFromContent(message.content);
@@ -348,6 +343,7 @@ async function generateRequestBody(openaiMessages, modelName, parameters, openai
       sessionId: generateSessionId()
     },
     model: actualModelName,
+    originalModel: modelName, // 保留原始模型名称，用于后续判断（如签名上传）
     userAgent: "antigravity"
   }
 }
